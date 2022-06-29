@@ -10,7 +10,8 @@ object Main extends ZIOAppDefault {
       _ <- table.playN(2)
     } yield ())
       .provide(
-        // Clock.live,
+        Clock.live,
+        Logger.live,
         Console.live,
         Random.live,
         Deck.live

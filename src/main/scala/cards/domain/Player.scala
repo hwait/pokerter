@@ -1,8 +1,11 @@
 package cards.domain
 
 import zio._
+import java.util.UUID
 
-case class Player(n: Int, name: String, positionRef: Ref[Int], cardsRef: Ref[Chunk[Card]]) {
+type PlayerId = UUID
+
+case class Player(pid: PlayerId, n: Int, name: String, positionRef: Ref[Int], cardsRef: Ref[Chunk[Card]]) {
   def addCard(card: Task[Card]): ZIO[Random with Console, Throwable, Unit] = {
     for {
       c <- card
@@ -32,10 +35,10 @@ case class Player(n: Int, name: String, positionRef: Ref[Int], cardsRef: Ref[Chu
 }
 
 object Player {
-  def init(n: Int): ZIO[Random with Console, Throwable, Player] = {
+  def init(pid: UUID, n: Int): ZIO[Random with Console, Throwable, Player] = {
     for {
       positionRef <- Ref.make(n)
       cardsRef <- Ref.make(Chunk.empty[Card])
-    } yield Player(n, s"player$n", positionRef, cardsRef)
+    } yield Player(pid, n, s"player$n", positionRef, cardsRef)
   }  
 }

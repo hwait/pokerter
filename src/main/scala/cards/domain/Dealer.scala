@@ -3,7 +3,7 @@ package cards.domain
 import zio._
 import GameConfig._
 
-case class Game(game: GameConfig, limit: String, sb: Int, bb: Int, players: Chunk[Player]) {
+case class Dealer(game: GameConfig, limit: String, sb: Int, bb: Int, players: Chunk[Player]) {
   def playGame() = 
     for {
       deck <- ZIO.service[Deck]
@@ -20,10 +20,12 @@ case class Game(game: GameConfig, limit: String, sb: Int, bb: Int, players: Chun
     } yield ()
 }
 
-object Game {
-  def init(game: GameConfig, playersNumber: Int, limit: String, sb: Int, bb: Int): ZIO[Deck & (Random & Console), Throwable, Game] = 
+object Dealer {
+  def init(game: GameConfig, playersNumber: Int, limit: String, sb: Int, bb: Int): ZIO[Deck & (Random & Console), Throwable, Dealer] = 
     for {
-      players <- ZIO.foreach(Chunk.range(0, playersNumber))(n => Player.init(n))
-    } yield Game(game, limit, sb, bb, players)
+      random <- ZIO.service[Random]
+      pid <- random.nextUUID
+      players <- ZIO.foreach(Chunk.range(0, playersNumber))(n => Player.init(pid, n))
+    } yield Dealer(game, limit, sb, bb, players)
   
 }
