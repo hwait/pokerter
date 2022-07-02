@@ -6,7 +6,7 @@ import java.io.IOException
 
 type PlayerId = UUID
 
-case class Player( pid: PlayerId, n: Int, name: String, positionRef: Ref[Int], cardsRef: Ref[Chunk[Card]]) {
+case class Player(console: Console, pid: PlayerId, n: Int, table: Table, name: String, position: Int, cardsRef: Ref[Chunk[Card]]) {
   def addCard(card: Task[Card]): Task[Unit] = {
     for {
       c <- card
@@ -17,16 +17,13 @@ case class Player( pid: PlayerId, n: Int, name: String, positionRef: Ref[Int], c
   def renew(maxIndex: Int): Task[Unit] = {
     for {
       _ <- cardsRef.set(Chunk.empty[Card])
-      sp <- positionRef.get
-      _ <- positionRef.set (if (sp >= maxIndex) 0 else sp + 1)
     } yield ()
   }
 
   // def move(promise: Promise[Nothing, Boolean]) = {
-  def move(): ZIO[Dealer & Console, Throwable, Unit] = {
+  def move(): ZIO[Console, Throwable, Unit] = {
     for {
-      dealer <- ZIO.service[Dealer]
-      _ <- dealer.status()
+      _ <- table.status()
     } yield ()
   }
 
@@ -38,9 +35,7 @@ case class Player( pid: PlayerId, n: Int, name: String, positionRef: Ref[Int], c
       case _ => ""
 
     for {
-      position <- positionRef.get
       cards <- cardsRef.get
-      console <- ZIO.service[Console]
       _ <- console.printLine(s"$n: $name${positionText(position)} ${cards.mkString("[",",","]")}")
       // _ <- ZIO.attempt(println(s"$n: $name${positionText(position)} ${cards.mkString("[",",","]")}"))
     } yield ()
@@ -48,10 +43,10 @@ case class Player( pid: PlayerId, n: Int, name: String, positionRef: Ref[Int], c
 }
 
 object Player {
-  def init(pid: UUID, n: Int): Task[Player] = {
+  def apply(pid: UUID, n: Int, position: Int, table: Table): ZIO[Console, Nothing, Player] = {
     for {
-      positionRef <- Ref.make(n)
       cardsRef <- Ref.make(Chunk.empty[Card])
-    } yield Player(pid, n, s"player$n", positionRef, cardsRef)
+      console <- ZIO.service[Console]
+    } yield Player(console, pid, n, table, s"player$n", position, cardsRef)
   }  
 }

@@ -22,8 +22,8 @@ object Dealer {
     def init(game: GameConfig, playersNumber: Int, blindes: Blindes): Task[Unit] = 
       for {
         pid <- random.nextUUID
-        players <- ZIO.foreach(Chunk.range(0, playersNumber))(n => Player.init(pid, n))
-        _ <- playersRef.set(players)
+        // players <- ZIO.foreach(Chunk.range(0, playersNumber))(n => Player.init(pid, n))
+        // _ <- playersRef.set(players)
         _ <- gameRef.set(game)
         _ <- blindesRef.set(blindes)
       } yield ()
