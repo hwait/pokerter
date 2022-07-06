@@ -1,8 +1,9 @@
-package cards.domain
-
+package cards.logic
 import zio._
-import GameConfig._
+// import GameConfig._
 import java.io.IOException
+import cards.domain._
+import cards.services.Logger
 
 type GameId = Int
 

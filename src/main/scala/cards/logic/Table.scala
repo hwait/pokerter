@@ -1,9 +1,8 @@
-package cards.domain
-
+package cards.logic
 import zio._
-import GameConfig._
-
-type TableId = Int
+import cards.domain._
+import cards.services.Logger
+//import GameConfig._
 
 case class Table(
     tableId: TableId,

@@ -1,6 +1,7 @@
-package cards.domain
+package cards.logic
 
 import zio._
+import cards.domain.Card
 
 case class Deck(random: Random, queue: Queue[Card], capacity: Int) {
   val shuffle: Task[Unit] =

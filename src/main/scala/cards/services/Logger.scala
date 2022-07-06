@@ -1,7 +1,8 @@
-package cards.domain
+package cards.services
 
 import zio._
 import java.util.UUID
+import cards.domain._
 
 trait Logger {
   def playerMoved(action: PlayerAction): Task[Unit]

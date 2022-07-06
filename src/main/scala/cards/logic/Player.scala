@@ -1,9 +1,9 @@
-package cards.domain
+package cards.logic
 
 import zio._
 import java.io.IOException
-
-type PlayerId = Int
+import cards.domain._
+import cards.services.Logger
 
 case class Player(
     pid: PlayerId,

@@ -1,5 +1,7 @@
 import zio._
 import cards.domain._
+import cards.logic.Table
+import cards.services.Logger
 
 object Main extends ZIOAppDefault {
   def table(
