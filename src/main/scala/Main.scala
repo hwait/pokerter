@@ -3,19 +3,20 @@ import cards.domain._
 
 object Main extends ZIOAppDefault {
   def table(
-      game: GameConfig,
-      playerNumbers: Int,
-      blindes: Blindes
-  ): ZIO[Random & Console, Throwable, Table] =
+    tableId: Int,
+    game: GameConfig,
+    playerNumbers: Int,
+    blindes: Blindes,
+    n: Int
+  ) =
     for {
-      table <- Table(game, playerNumbers, blindes)
-      _ <- table.init()
+      table <- Table(tableId, blindes, game, playerNumbers)
+      _     <- table.playN(n)
     } yield table
 
   override def run =
     (for {
-      table1 <- table(GameConfig.NLHoldem, 6, Blindes(50, 100, 0))
-      _ <- table1.playN(2)
+      _ <- ZIO.foreachPar(Range(0, 10))(i => table(i, GameConfig.NLHoldem, 6, Blindes(500, 1000, 0), 10))
     } yield ())
       .provide(
         Clock.live,

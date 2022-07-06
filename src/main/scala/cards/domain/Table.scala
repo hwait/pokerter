@@ -3,82 +3,74 @@ package cards.domain
 import zio._
 import GameConfig._
 
-type GameId = Int
+type TableId = Int
 
+case class Table(
+    tableId: TableId,
+    gameConfig: GameConfig,
+    gameRef: Ref[Game],
+    playersN: Int,
+    playersRef: Ref[Chunk[Player]],
+    deck: Deck,
+    console: Console
+) {
 
-
-case class Table (
-    console: Console, 
-    deck: Deck, 
-    game: GameConfig, 
-    playersNumber: Int,
-    playersRef: Ref[Chunk[Player]], 
-    blindesRef: Ref[Blindes],
-    gidRef: Ref[GameId],
-    gameStageRef: Ref[GameStages],
-    potRef: Ref[Int],
-    actionsRef: Ref[Chunk[PlayerAction]]
-  ) {
-
-  def init(): ZIO[Random & Console, Nothing, Unit] = 
+  def playRound(id: Int): ZIO[Logger & Clock & Console, Throwable, Unit] = 
     for {
-      random <- ZIO.service[Random]
-      pid <- random.nextUUID
-      players <- ZIO.foreach(Chunk.range(0, playersNumber))(n => Player(pid, n, n, this))
-      _ <- playersRef.set(players)
+      game <- gameRef.get
+      players <- playersRef.get
+      status <- players(id).statusRef.get
+      _ <- ZIO.when(status == PlayerStatus.Active)(game.playerMove(players(id)))
+      isNextRound <- game.isNextRound
+      _ <- if (isNextRound) playRound(if (id>=playersN-1) 0 else id + 1)
+      else game.nextRound()
     } yield ()
 
-  def play(): ZIO[Console, Throwable, Unit] = 
+  val play =
     for {
-      _ <- gidRef.update(_ + 1)
-      _ <- deck.shuffle(game.cardsInDeck)
+      logger <- ZIO.service[Logger]
+      game <- gameRef.get
+      newGame <- Game(tableId, game.gid+1, gameConfig, playersN, game.blindes)
+      _ <- gameRef.set(newGame)
+      _ <- deck.shuffle
       players <- playersRef.get
-      newPlayers <- ZIO.foreach((players.tail :+ players.head).zipWithIndexFrom(0))((p, i) => Player(p.pid, p.n, i, this))
+      // pid: PlayerId, n: Int, position: Int, status: PlayerStatus, bank: Int
+      _ <- ZIO.foreach(players)(p => p.addCard(deck.oneCard)).repeatN(gameConfig.cardsInHand - 1)
+      _ <- status
+      _ <- playRound(0)
+      _ <- playRound(0)
+      _ <- playRound(0)
+      _ <- playRound(0)
+      newPlayers <- ZIO.foreach((players.last +: players.dropRight(1)).zipWithIndexFrom(0))((p, i) => p.renew *> ZIO.succeed(p.copy(position = i)))
       _ <- playersRef.set(newPlayers)
-      _ <- ZIO.foreach(newPlayers)(p => p.addCard(deck.oneCard())).repeatN(game.cardsInHand-1)
-      _ <- newPlayers(0).move()
     } yield ()
 
-  def playN(gamesN: Int) = play().repeatN(gamesN - 1)
+  def playN(gamesN: Int) = play.repeatN(gamesN - 1)
 
-  def playerMove(pid: PlayerId, name: String, position: Int, action: PlayerActions, wager: Int) = 
+  val status = 
     for {
-      clock <- ZIO.service[Clock]
-      _ <- potRef.update(_ + wager)
-      stage <- gameStageRef.get
-      dt <- clock.nanoTime
-      //(pid: PlayerId, name: String, position: Int, gameStage: GameStages, action: PlayerActions, wager: Int, dt: Long)
-      _ <- actionsRef.update(_ :+ PlayerAction(pid, name, position, stage, action, wager, dt))
-    } yield ()
-
-  def biggestMove() =
-    for {
-      actions <- actionsRef.get
-      toClose = actions.maxBy(_.wager)
-    } yield toClose
-
-  def status(): ZIO[Console, Throwable, Unit] = 
-    for {
-      gid <- gidRef.get
+      game <- gameRef.get
       players <- playersRef.get
-      blindes <- blindesRef.get
-      _ <- console.printLine(s"[$gid] ${game.limit} ${game.name} ${blindes.sb}/${blindes.bb} for ${players.size} players: ")
-      _ <-  ZIO.foreachDiscard(players)(p => p.status())
+      _ <- console.printLine(s"[T$tableId / G${game.gid}] ${gameConfig.limit} ${gameConfig.name} ${game.blindes.sb}/${game.blindes.bb} for $playersN pls:")
+      _ <- ZIO.foreach(players)(p => p.status)
     } yield ()
 }
 
+
 object Table {
-  def apply(game: GameConfig, playersNumber: Int, blindes: Blindes): ZIO[Console & Random, Throwable, Table] = {
+  def apply(tableId: TableId, blindes: Blindes, gameConfig: GameConfig, playersN: Int): ZIO[Logger & Console & Random, Throwable, Table] = {
     for {
       console <- ZIO.service[Console]
-      deck <- Deck(game.cardsInDeck)
-      playersRef <- Ref.make(Chunk.empty[Player])
-      blindesRef <- Ref.make(blindes)
-      gidRef <- Ref.make(-1)
-      potRef <- Ref.make(0)
-      actionsRef <- Ref.make(Chunk.empty[PlayerAction])
-      gameStageRef <- Ref.make(GameStages.Preflop) // TODO: GameStages should be differ by games (fool?)
-    } yield Table(console, deck, game, playersNumber, playersRef, blindesRef, gidRef, gameStageRef, potRef, actionsRef)
-  }
+      game <- Game(tableId, 0, gameConfig, playersN, blindes)
 
+      gameRef <- Ref.make(game)
+
+      players <- ZIO.foreach(Chunk.range(0, playersN)) { n => 
+        Player(tableId*10+n, n, n, PlayerStatus.Active, blindes.bb * 100)
+      }
+
+      playersRef <- Ref.make(players)
+      deck <- Deck(gameConfig.cardsInDeck)
+    } yield Table( tableId, gameConfig, gameRef, playersN, playersRef, deck, console )
+  }
 }

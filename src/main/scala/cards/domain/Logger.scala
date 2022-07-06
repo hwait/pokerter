@@ -4,7 +4,7 @@ import zio._
 import java.util.UUID
 
 trait Logger {
-  def playerMoved(pid: PlayerId, name: String, position: Int, stage: GameStages, action: PlayerActions, wager: Int = 0): Task[Unit]
+  def playerMoved(action: PlayerAction): Task[Unit]
   def dealerMoved(action: DealerActions, cards: Chunk[Card]): Task[Unit]
   def playerEvaluated(pid: PlayerId, result: GameResults, topCombination: PokerCombinations, cards: Chunk[Card], profit: Int): Task[Unit]
   def saveAndClear(): Task[Unit]
@@ -14,11 +14,9 @@ trait Logger {
 object Logger {
   // implementation
   case class LoggerImpl(clock: Clock, console: Console, actionsRef: Ref[Chunk[GameActions]]) extends Logger {
-    override def playerMoved(pid: PlayerId, name: String, position: Int, stage: GameStages, action: PlayerActions,  wager: Int): Task[Unit] =
+    override def playerMoved(action: PlayerAction): Task[Unit] =
       for {
-        currentTime <- clock.nanoTime
-        //pid: PlayerId, name: String, position: Int, gameStage: GameStages, action: PlayerActions, wager: Int, dt: Long)
-          _ <- actionsRef.update(_ :+ PlayerAction(pid, name, position, stage,  action,  wager, currentTime))
+          _ <- actionsRef.update(_ :+ action)
       } yield ()
 
     override def dealerMoved(action: DealerActions, cards: Chunk[Card]): Task[Unit] =
@@ -53,8 +51,8 @@ object Logger {
   }
 
   // accessors
-  def playerMoved(pid: PlayerId, name: String, position: Int, stage: GameStages, action: PlayerActions, wager: Int = 0): ZIO[Logger, Throwable, Unit] =
-    ZIO.serviceWithZIO(_.playerMoved(pid, name, position, stage, action,  wager))
+  def playerMoved(action: PlayerAction): ZIO[Logger, Throwable, Unit] =
+    ZIO.serviceWithZIO(_.playerMoved(action))
     
   def dealerMoved(action: DealerActions, cards: Chunk[Card]): ZIO[Logger, Throwable, Unit] =
     ZIO.serviceWithZIO(_.dealerMoved(action, cards))
