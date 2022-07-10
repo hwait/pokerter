@@ -6,7 +6,7 @@ import cards.services.Logger
 object Main extends ZIOAppDefault {
   def table(
     tableId: Int,
-    game: GameConfig,
+    game: GameConfigs,
     playerNumbers: Int,
     blindes: Blindes,
     n: Int
@@ -18,7 +18,9 @@ object Main extends ZIOAppDefault {
 
   override def run =
     (for {
-      _ <- ZIO.foreachPar(Range(0, 10))(i => table(i, GameConfig.NLHoldem, 6, Blindes(500, 1000, 0), 10))
+      _      <- ZIO.foreachPar(Range(0, 1))(i => table(i, GameConfigs.NLHoldem, 6, Blindes(500, 1000, 0), 1))
+      logger <- ZIO.service[Logger]
+      _      <- logger.saveAndClear()
     } yield ())
       .provide(
         Clock.live,
